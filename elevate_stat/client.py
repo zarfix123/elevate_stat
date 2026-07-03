@@ -29,6 +29,6 @@ def call(
             return endpoint.get_data_frames()
         except Exception as err:  # noqa: BLE001 — network layer is genuinely unpredictable
             last_err = err
-            backoff = min(2 ** attempt, 30)
+            backoff = min(2 ** attempt, 60)
             sleep(backoff)
     raise RuntimeError(f"call failed after {max_retries} attempts: {last_err}") from last_err

@@ -18,6 +18,6 @@ DATA_DIR = Path("data")
 RAW_DIR = DATA_DIR / "raw"
 
 # Network tuning (stats.nba.com is rate-limited and flaky)
-REQUEST_DELAY = 0.6   # seconds of polite delay before each call
-MAX_RETRIES = 5       # attempts per call before giving up
+REQUEST_DELAY = 0.8   # seconds of polite delay before each call (gentler = fewer throttles)
+MAX_RETRIES = 8       # attempts per call before giving up (ride out throttle windows)
 TIMEOUT = 60          # per-request timeout in seconds

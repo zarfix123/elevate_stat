@@ -7,28 +7,30 @@ from elevate_stat.fetchers import games, play_by_play, shots, aggregates, tracki
 log = logging.getLogger("elevate_stat.ingest")
 
 
+def _safe(label, fn):
+    """Run a stage, logging and swallowing any failure so the run continues."""
+    try:
+        return fn()
+    except Exception as err:  # noqa: BLE001 — one stage must not abort the season
+        log.warning("stage failed [%s] — %s: %s (continuing)",
+                    label, type(err).__name__, str(err)[:150])
+        return None
+
+
 def ingest_season(season: str) -> None:
-    log.info("=== %s: games ===", season)
-    games.fetch_games(season)
+    _safe(f"{season}:games", lambda: games.fetch_games(season))
     gids = games.game_ids(season)
 
-    log.info("=== %s: player-season stats ===", season)
-    aggregates.fetch_player_season(season)
-
-    log.info("=== %s: shots ===", season)
-    shots.fetch_shots(season)
-
-    log.info("=== %s: tracking shots ===", season)
-    tracking_shots.fetch_tracking_shots(season)
+    _safe(f"{season}:player_season", lambda: aggregates.fetch_player_season(season))
+    _safe(f"{season}:shots", lambda: shots.fetch_shots(season))
+    _safe(f"{season}:tracking_shots", lambda: tracking_shots.fetch_tracking_shots(season))
 
     log.info("=== %s: play-by-play (%d games) ===", season, len(gids))
-    play_by_play.fetch_play_by_play(season, gids)
+    _safe(f"{season}:play_by_play", lambda: play_by_play.fetch_play_by_play(season, gids))
 
-    log.info("=== %s: synergy ===", season)
-    aggregates.fetch_synergy(season)
-
-    log.info("=== %s: lineups ===", season)
-    aggregates.fetch_lineups(season)
+    _safe(f"{season}:synergy", lambda: aggregates.fetch_synergy(season))
+    _safe(f"{season}:lineups", lambda: aggregates.fetch_lineups(season))
+    log.info("=== %s: done ===", season)
 
 
 def parse_args(argv):
@@ -47,7 +49,10 @@ def main(argv=None):
     args = parse_args(argv if argv is not None else sys.argv[1:])
     seasons = args.seasons or config.SEASONS
     for season in seasons:
-        ingest_season(season)
+        try:
+            ingest_season(season)
+        except Exception as err:  # noqa: BLE001 — never let one season kill the rest
+            log.error("season %s aborted — %s: %s", season, type(err).__name__, str(err)[:150])
     log.info("Ingest complete for %d season(s).", len(seasons))
 
 
