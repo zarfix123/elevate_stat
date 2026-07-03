@@ -1,0 +1,28 @@
+# --- Data: kept LOCAL only ---
+# Large, and redistributing NBA data can bump against their terms. Never push it.
+data/
+*.parquet
+*.csv
+*.sqlite
+*.db
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- Secrets / env ---
+.env
+.env.*
+
+# --- OS / editor cruft ---
+.DS_Store
+*.swp
+.idea/
+.vscode/
