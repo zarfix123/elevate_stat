@@ -1,0 +1,1 @@
+"""LATE — data ingestion pipeline."""
