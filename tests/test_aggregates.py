@@ -15,17 +15,33 @@ class FakeClient:
 def test_player_stats_writes_per_measure_and_exposes_player_ids(monkeypatch, tmp_path):
     monkeypatch.setattr(storage.config, "RAW_DIR", tmp_path / "raw")
     client = FakeClient()
-    aggregates.fetch_player_season("2015-16", client=client)
-    assert storage.exists(storage.raw_path("player_season", "2015-16_base.parquet"))
-    assert storage.exists(storage.raw_path("player_season", "2015-16_advanced.parquet"))
-    assert sorted(aggregates.player_ids("2015-16")) == [2544, 201939]
+    aggregates.fetch_player_season("2015-16", client=client, season_types=["Regular Season"])
+    assert storage.exists(storage.raw_path("player_season", "2015-16_regular-season_base.parquet"))
+    assert storage.exists(storage.raw_path("player_season", "2015-16_regular-season_advanced.parquet"))
+    assert sorted(aggregates.player_ids("2015-16", "Regular Season")) == [2544, 201939]
+
+
+def test_player_stats_covers_both_season_types(monkeypatch, tmp_path):
+    monkeypatch.setattr(storage.config, "RAW_DIR", tmp_path / "raw")
+    aggregates.fetch_player_season("2015-16", client=FakeClient(),
+                                   season_types=["Regular Season", "Playoffs"])
+    assert storage.exists(storage.raw_path("player_season", "2015-16_regular-season_base.parquet"))
+    assert storage.exists(storage.raw_path("player_season", "2015-16_playoffs_base.parquet"))
 
 
 def test_synergy_and_lineups_write_files(monkeypatch, tmp_path):
     monkeypatch.setattr(storage.config, "RAW_DIR", tmp_path / "raw")
     client = FakeClient()
     aggregates.fetch_lineups("2015-16", client=client, season_types=["Regular Season"])
-    aggregates.fetch_synergy("2015-16", client=client, play_types=["Isolation"])
+    aggregates.fetch_synergy("2015-16", client=client, play_types=["Isolation"],
+                             season_types=["Regular Season"])
     assert storage.exists(storage.raw_path("lineups", "2015-16_regular-season.parquet"))
-    assert storage.exists(storage.raw_path("synergy", "2015-16_isolation_offensive.parquet"))
-    assert storage.exists(storage.raw_path("synergy", "2015-16_isolation_defensive.parquet"))
+    assert storage.exists(storage.raw_path("synergy", "2015-16_regular-season_isolation_offensive.parquet"))
+    assert storage.exists(storage.raw_path("synergy", "2015-16_regular-season_isolation_defensive.parquet"))
+
+
+def test_synergy_covers_playoffs(monkeypatch, tmp_path):
+    monkeypatch.setattr(storage.config, "RAW_DIR", tmp_path / "raw")
+    aggregates.fetch_synergy("2015-16", client=FakeClient(), play_types=["Isolation"],
+                             season_types=["Playoffs"])
+    assert storage.exists(storage.raw_path("synergy", "2015-16_playoffs_isolation_offensive.parquet"))
