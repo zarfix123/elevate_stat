@@ -16,3 +16,11 @@ def test_save_then_load_roundtrips_and_creates_dirs(monkeypatch, tmp_path):
     storage.save_df(df, path)
     assert storage.exists(path)
     pd.testing.assert_frame_equal(storage.load_df(path), df)
+
+
+def test_save_is_atomic_leaves_no_tmp_files(monkeypatch, tmp_path):
+    monkeypatch.setattr(storage.config, "RAW_DIR", tmp_path / "raw")
+    path = storage.raw_path("games", "2015-16.parquet")
+    storage.save_df(pd.DataFrame({"a": [1]}), path)
+    assert path.exists()
+    assert list((tmp_path / "raw").rglob("*.tmp")) == []  # no temp file left behind

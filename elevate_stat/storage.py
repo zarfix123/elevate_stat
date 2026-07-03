@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import pandas as pd
 from elevate_stat import config
@@ -13,9 +14,16 @@ def exists(path: Path) -> bool:
 
 
 def save_df(df: pd.DataFrame, path: Path) -> None:
-    """Write a DataFrame to parquet, creating parent directories as needed."""
+    """Write a DataFrame to parquet atomically.
+
+    Writes to a temp file then os.replace()s into place, so a crash or kill
+    mid-write never leaves a partial .parquet that the skip-if-exists resume
+    logic would mistake for a completed unit.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(path, index=False)
+    tmp = path.with_name(path.name + ".tmp")
+    df.to_parquet(tmp, index=False)
+    os.replace(tmp, path)
 
 
 def load_df(path: Path) -> pd.DataFrame:
