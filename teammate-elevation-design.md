@@ -68,9 +68,9 @@ Condition elevation on teammate archetype (from §4.3): e.g. "+6 to catch-and-sh
 
 | Purpose | `nba_api` endpoint(s) | Notes |
 |---|---|---|
-| Play-by-play (leverage, on/off, lineups) | `PlayByPlayV2` | Reconstruct 5-on-5 on court via substitution events |
+| Play-by-play (leverage, on/off, lineups) | `PlayByPlayV3` | V2 deprecated (returns empty JSON); V3 adds inline shot coords + running score. Reconstruct 5-on-5 via substitution events |
 | Shots (location) | `ShotChartDetail`, `LeagueDashPlayerShotLocations` | LOC_X/Y, distance, zone, made flag |
-| Tracking shot detail (baseline features) | `PlayerDashPtShotLog`, `PlayerDashPtShot` | Catch-&-shoot vs. pull-up, dribbles, touch time, closest-defender bucket (2013+; post-2020 segmentation caveat) |
+| Tracking shot detail (baseline features) | `LeagueDashPlayerPtShot` | League-wide per-player, split by closest-defender bucket (~4 calls/season vs. ~500 per-player). Post-2020 segmentation caveat |
 | Lineups / on-off | `LeagueDashLineups`, `BoxScoreAdvancedV2` | Cross-check against PBP-reconstructed lineups |
 | Playtypes (archetype features) | `SynergyPlayTypes` | 2015–16+ |
 | Player-season stats (clustering) | `LeagueDashPlayerStats` (Base/Advanced/Scoring/Usage) | |
