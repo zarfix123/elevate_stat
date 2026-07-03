@@ -26,3 +26,6 @@ env/
 *.swp
 .idea/
 .vscode/
+
+# ingest run logs
+ingest-*.log
