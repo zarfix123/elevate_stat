@@ -8,6 +8,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.getElementById('view-method'),{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false})"></script>
 <style>
   :root{
     --bg:#14110d; --panel:#1d1913; --panel2:#241f18; --line:#352a1c;
@@ -134,7 +138,9 @@
   .method ul{color:#c9c0b2; font-size:14px; line-height:1.7; margin:6px 0 12px 20px}
   .method li{margin-bottom:6px}
   .method .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:12.5px; color:var(--amber2)}
-  .method .eq{font-family:ui-monospace,"SF Mono",Menlo,monospace; background:#100d09; border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:13px 16px; color:#e7dccb; font-size:12.5px; line-height:1.65; margin:12px 0; overflow-x:auto; white-space:pre-wrap}
+  .method .eq{background:#100d09; border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:14px 18px; color:#e7dccb; font-size:15px; margin:14px 0; overflow-x:auto}
+  .method .eq .katex-display{margin:0}
+  .method .eq .katex{color:#ece4d7}
   .method .note{color:var(--muted); font-style:italic}
   footer{margin-top:36px; color:var(--muted); font-size:11.5px; line-height:1.7; border-top:1px solid var(--line); padding-top:16px}
 </style>
@@ -230,16 +236,16 @@
       <p>Public only, via <b>nba_api</b> / stats.nba.com — <b>2015-16 → 2025-26</b> (the tracking era), regular season <b>and</b> playoffs, <b>14,128 games</b>. Sources: play-by-play (V3), shot locations, tracking shots (defender distance), Synergy playtypes, player-season stats. On-court lineups are <b>reconstructed from raw play-by-play</b> — no private tracking feed. The scrape is resumable and self-healing (~550 MB of parquet, gitignored).</p>
 
       <h3>End to end</h3>
-      <div class="eq">scrape  →  reconstruct 5-on-5 lineups  →  build stints  →  fit models  →  ratings  →  this site</div>
+      <div class="eq">$$\text{scrape} \;\to\; \text{reconstruct lineups} \;\to\; \text{stints} \;\to\; \text{fit models} \;\to\; \text{ratings} \;\to\; \text{site}$$</div>
 
       <h3>1 · Win probability & leverage</h3>
-      <p>A logistic regression predicts P(home team wins) from the game state, with features <span class="mono">[ score_diff, √seconds_remaining, score_diff / √(seconds_remaining + 1) ]</span> (the last term encodes "a lead matters more as time shrinks"). <b>Leverage</b> is the win-probability swing across a one-possession change:</p>
-      <div class="eq">leverage(diff, secs) = | WP(diff + 2, secs) − WP(diff − 2, secs) |</div>
+      <p>A logistic regression predicts $P(\text{home win})$ from the game state, with features $x = [\,d,\ \sqrt{t},\ d/\sqrt{t+1}\,]$ (score differential $d$, seconds remaining $t$; the last term encodes "a lead matters more as time shrinks"). <b>Leverage</b> is the win-probability swing across a one-possession change:</p>
+      <div class="eq">$$\operatorname{lev}(d,t) = \bigl|\, \operatorname{WP}(d{+}2,\,t) - \operatorname{WP}(d{-}2,\,t) \,\bigr|$$</div>
       <p>High late-and-close, ~0 in blowouts and early. This weight is what makes LATE "leverage-adjusted." <span class="note">Verified: tie at 24 min ≈ 0.56 (home edge); leverage of a tie in the final 30s = 0.68 vs. 0.00 in a 20-point blowout.</span></p>
 
       <h3>2 · Expected points per shot (xPPS)</h3>
       <p>A gradient-boosted model predicts make probability from shot location, zone, and type; expected points is:</p>
-      <div class="eq">xPPS = P(make) × point_value        (3 for a three, else 2)</div>
+      <div class="eq">$$\text{xPPS} = P(\text{make}) \times v, \qquad v = \begin{cases} 3 & \text{if a three}\\[2pt] 2 & \text{otherwise} \end{cases}$$</div>
       <p>This is the shot-quality backbone — restricted area ≈ 1.54, corner-3 ≈ 1.11, mid-range ≈ 0.83 (why analytics dislikes the long two).</p>
 
       <h3>3 · On-court lineups from play-by-play</h3>
@@ -249,22 +255,16 @@
       <p>A <b>stint</b> is a stretch with a constant 10-man lineup (breaks on any substitution). Per stint we record the two lineups, point margin, seconds, leverage, and each on-court player's points and shot attempts. <span class="note">Per-stint points reconcile exactly to final scores.</span></p>
 
       <h3>5 · LATE &amp; RAPM — the impact number</h3>
-      <p>Regularized Adjusted Plus-Minus (RAPM) via <b>ridge regression</b> over every stint. Each stint is one row; the design is <span class="mono">+1</span> for each home player, <span class="mono">−1</span> for each away player; the response is point margin per 100 possessions:</p>
-      <div class="eq">y   = 100 × (home_pts − away_pts) / possessions
-possessions = seconds / 28.8            (~100 team possessions / 2880s)
-
-two ridge fits (α = 3000):
-  RAPM  →  weight = possessions
-  LATE  →  weight = possessions × leverage      ← the leverage-adjusted one</div>
+      <p>Regularized Adjusted Plus-Minus (RAPM) via <b>ridge regression</b> over every stint. Each stint is one row; the design vector is $+1$ for each home player, $-1$ for each away player; the response is point margin per 100 possessions:</p>
+      <div class="eq">$$y_i = \frac{100\,(\text{home}_i - \text{away}_i)}{p_i}, \qquad p_i = \frac{\text{seconds}_i}{28.8}$$</div>
+      <p>Two ridge fits ($\alpha = 3000$) minimize a weighted, penalized squared error — one weighted by possessions (<b>RAPM</b>), the other by possessions × leverage (<b>LATE</b>):</p>
+      <div class="eq">$$\hat\beta \;=\; \arg\min_{\beta}\ \sum_i w_i\,\bigl(y_i - x_i^{\top}\beta\bigr)^2 + \alpha\lVert\beta\rVert^2, \qquad w_i^{\text{RAPM}} = p_i,\quad w_i^{\text{LATE}} = p_i\cdot \operatorname{lev}_i$$</div>
       <p>Each player's coefficient is the points per 100 possessions he adds, pooled across the era for stability. <span class="note">RAPM top: Curry, Jokić, Kawhi, Giannis. LATE shifts toward players bigger in high-leverage minutes — Kawhi to #1, Chris Paul, LeBron rising.</span></p>
 
       <h3>6 · Teammate elevation</h3>
-      <p>Does a player make teammates more <i>efficient</i> (not just take more shots)? For every teammate pair (A, B), a leverage-weighted with-or-without-you on B's efficiency — points per true shot attempt, where <span class="mono">TSA = FGA + 0.44·FTA</span>:</p>
-      <div class="eq">eff_on   = Σ(lev · B_pts while A on)  / Σ(lev · B_tsa while A on)
-eff_off  = (B_pts_total − on) / (B_tsa_total − on)
-lift(A→B) = 100 × (eff_on − eff_off)          (pts per 100 shot attempts)
-
-elevation = shared-attempt-weighted average of lift over all teammates</div>
+      <p>Does a player make teammates more <i>efficient</i> (not just take more shots)? For every teammate pair $(A,B)$, a leverage-weighted ($\ell$) with-or-without-you on $B$'s efficiency — points per true shot attempt, $\text{TSA} = \text{FGA} + 0.44\,\text{FTA}$:</p>
+      <div class="eq">$$\text{eff}^{\text{on}} = \frac{\sum \ell\, B_{\text{pts}}\,[A\ \text{on}]}{\sum \ell\, B_{\text{tsa}}\,[A\ \text{on}]}, \qquad \text{eff}^{\text{off}} = \frac{B_{\text{pts}} - \text{on}}{B_{\text{tsa}} - \text{on}}$$</div>
+      <div class="eq">$$\operatorname{lift}(A\!\to\!B) = 100\bigl(\text{eff}^{\text{on}} - \text{eff}^{\text{off}}\bigr), \qquad \operatorname{elev}(A) = \frac{\sum_B \text{tsa}_{AB}\,\operatorname{lift}(A\!\to\!B)}{\sum_B \text{tsa}_{AB}}$$</div>
       <p>Measuring <b>efficiency</b>, not volume, is what fixes the usage confound (raw scoring just ranks deferential shooters on top). <span class="note">Top elevators: De'Aaron Fox, Curry, Jokić, Draymond, Luka, Trae, Haliburton.</span></p>
       <p><b>Mechanism.</b> Since a teammate's scoring rate = efficiency × volume, each lift splits into two channels: an <b>efficiency channel</b> (better shots — gravity / spacing) and a <b>volume channel</b> (more shots — creation / passing). Thin pairs are shrunk toward zero.</p>
 
