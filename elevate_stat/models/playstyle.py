@@ -13,7 +13,9 @@ def build_player_features(advanced_df, synergy_df=None, shots_df=None, min_minut
     playtype frequencies + three-point shot share). Indexed by PLAYER_ID, no NaNs."""
     adv = advanced_df.copy()
     if "MIN" in adv.columns:
-        adv = adv[adv["MIN"] >= min_minutes]
+        # LeagueDashPlayerStats returns per-game minutes; total = MIN * GP.
+        gp = adv["GP"] if "GP" in adv.columns else 1
+        adv = adv[adv["MIN"] * gp >= min_minutes]
     cols = [c for c in ADVANCED_FEATURES if c in adv.columns]
     feats = adv[["PLAYER_ID"] + cols].set_index("PLAYER_ID")
 

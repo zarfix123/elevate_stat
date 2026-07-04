@@ -28,6 +28,17 @@ def test_min_minutes_filter_drops_low_minute_players():
     assert feats.index.tolist() == [1]
 
 
+def test_min_minutes_uses_total_minutes_via_gp():
+    # per-game MIN is the same, but GP differs: 20*40=800 kept, 20*5=100 dropped
+    adv = pd.DataFrame({
+        "PLAYER_ID": [1, 2], "GP": [40, 5], "MIN": [20, 20],
+        "USG_PCT": [0.25, 0.25], "AST_PCT": [0.2, 0.2], "OREB_PCT": [0.05, 0.05],
+        "DREB_PCT": [0.15, 0.15], "TS_PCT": [0.57, 0.57], "PACE": [100.0, 100.0],
+    })
+    feats = playstyle.build_player_features(adv, min_minutes=500)
+    assert feats.index.tolist() == [1]
+
+
 def test_gmm_separates_distinct_profiles():
     rng = np.random.RandomState(0)
     profiles = {

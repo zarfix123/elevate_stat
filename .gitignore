@@ -29,3 +29,6 @@ env/
 
 # ingest run logs
 ingest-*.log
+
+# model build log
+build-models.log
