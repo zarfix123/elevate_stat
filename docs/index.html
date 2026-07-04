@@ -441,6 +441,7 @@ function setTab(t){
   document.getElementById('view-board').hidden = (t!=='board');
   document.getElementById('view-web').hidden = (t!=='web');
   document.getElementById('view-traj').hidden = (t!=='traj');
+  document.getElementById('connpanel').hidden = (t!=='web');   // connections only on Explorer
   const p = BYID[current];
   if(p){ if(t==='web') drawWeb(p); else if(t==='traj') drawTrajectory(p); }
 }
