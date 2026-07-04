@@ -151,11 +151,14 @@ Built via `python -m elevate_stat.build_elevation` → `elevation_teammate.parqu
 
 ## 6. The web explorer (`docs/`)
 
-A static, GitHub-Pages-ready single page (`docs/index.html`, vis-network + matplotlib-free, headshots via `cdn.nba.com`). Data is pre-computed into `docs/data.json` by `scripts/gen_seasons.py`, which reconstructs the stint table **once** (cached), then slices it into **per-season × per-type (reg / playoffs / both) + all-time** blocks.
+A static, GitHub-Pages-ready single page (`docs/index.html`; vis-network for the graph + hand-rolled SVG for the line chart, no build step; player headshots via `cdn.nba.com`). Data is pre-computed into `docs/data.json` by `scripts/gen_seasons.py`, which reconstructs the stint table **once** (pickle-cached), then slices it into **per-season × per-type (reg / playoffs / both) + all-time** blocks, plus a global id→name map.
 
-Features: player search, team filter, **reg / playoffs / both** toggle, **season From→To** (single season / range / all-time), the **who-affects-who web** (every connection, green = makes better / red = makes worse, click to re-center), a **connections panel** (ranked list of who most affects / is affected by a player), and leaderboards.
+**Shared controls** (apply across tabs): player search, team filter, a **reg / playoffs / both** toggle, and a **season From→To** picker (single season / range / all-time). **Three tabs:**
+- **Explorer** — the player card (LATE, RAPM, elevation, the volume/efficiency mechanism split), the **who-affects-who web** (every connection, green = makes better / red = makes worse, arrow = direction, click a node to re-center), and a ranked **connections panel** (who most helps/hurts the player, toggleable to who they most help/hurt).
+- **Trajectory** — a per-player **season-by-season line chart** of LATE / RAPM / Elevation (respects the reg/playoff/both toggle).
+- **Leaderboards** — top elevators / LATE / RAPM, with a view-adaptive minutes threshold.
 
-**Static-site honesty:** single seasons and all-time are *exact* recomputations; a custom season range is a **minutes-weighted blend** of the per-season numbers (true range re-fitting needs a server).
+**Static-site honesty & display:** single seasons and all-time are *exact* recomputations; a custom season range is a **minutes-weighted blend** of the per-season numbers (true range re-fitting needs a server). Sub-1,000-minute totals are shown exactly (not "0k"). Because elevation is WOWY, a very high-minute star's "effect on others" can be sparse in small samples (teammates rarely play without them) — use all-time or a range there.
 
 ---
 
