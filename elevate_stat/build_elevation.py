@@ -36,7 +36,7 @@ def main(argv=None):
                         handlers=[logging.StreamHandler(sys.stdout)])
     ap = argparse.ArgumentParser(description="Build teammate-elevation ratings + figures.")
     ap.add_argument("--seasons", nargs="+", default=None)
-    ap.add_argument("--min-shared-poss", type=float, default=200.0)
+    ap.add_argument("--min-shared-tsa", type=float, default=150.0)
     ns = ap.parse_args(argv if argv is not None else sys.argv[1:])
     seasons = ns.seasons or config.SEASONS
 
@@ -45,7 +45,7 @@ def main(argv=None):
     table, n_games, n_clean = build_late.build_stint_table(seasons, idn, wp)
     log.info("computing teammate elevation on %d stints (%d games)", len(table), n_games)
 
-    cent, pairs = et.compute(table, min_shared_poss=ns.min_shared_poss)
+    cent, pairs = et.compute(table, min_shared_tsa=ns.min_shared_tsa)
     cent["name"] = cent["PLAYER_ID"].map(idn)
     arch = et.elevation_by_archetype(pairs, load_archetypes())
 

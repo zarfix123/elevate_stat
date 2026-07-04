@@ -63,12 +63,18 @@ def build_stints(recon_df, home_id, away_id, wp_model):
         start_a = away_score[i - 1] if i > 0 else 0.0
         if seconds > 0 and len(home_lu) == 5 and len(away_lu) == 5:
             secs_remaining = win_prob.seconds_remaining(p, clock[i])
-            player_pts = {}
+            player_pts, player_tsa = {}, {}   # points and true shot attempts (FGA + 0.44*FTA)
             for k in range(i, j + 1):
-                if action[k] == "Made Shot":
-                    player_pts[person[k]] = player_pts.get(person[k], 0) + shotval[k]
-                elif action[k] == "Free Throw" and "MISS" not in desc[k]:
-                    player_pts[person[k]] = player_pts.get(person[k], 0) + 1
+                pid, a = person[k], action[k]
+                if a == "Made Shot":
+                    player_pts[pid] = player_pts.get(pid, 0) + shotval[k]
+                    player_tsa[pid] = player_tsa.get(pid, 0) + 1
+                elif a == "Missed Shot":
+                    player_tsa[pid] = player_tsa.get(pid, 0) + 1
+                elif a == "Free Throw":
+                    player_tsa[pid] = player_tsa.get(pid, 0) + 0.44
+                    if "MISS" not in desc[k]:
+                        player_pts[pid] = player_pts.get(pid, 0) + 1
             rows.append({
                 "home_lineup": home_lu,
                 "away_lineup": away_lu,
@@ -77,6 +83,7 @@ def build_stints(recon_df, home_id, away_id, wp_model):
                 "seconds": seconds,
                 "leverage": float(win_prob.leverage(wp_model, start_h - start_a, secs_remaining)),
                 "player_pts": player_pts,
+                "player_tsa": player_tsa,
             })
         i = j + 1
 
