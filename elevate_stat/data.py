@@ -11,6 +11,10 @@ def pbp_game_paths(season):
     return sorted(glob.glob(str(storage.raw_path("play_by_play", season, "*.parquet"))))
 
 
+def load_pbp(path, columns=None):
+    return pd.read_parquet(path, columns=columns)
+
+
 def load_shots(season, season_type, columns=None):
     p = storage.raw_path("shots", f"{season}_{_slug(season_type)}.parquet")
     return pd.read_parquet(p, columns=columns) if p.exists() else pd.DataFrame()
