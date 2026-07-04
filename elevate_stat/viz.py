@@ -51,6 +51,67 @@ def who_lifts_whom(pairs_df, players, names, path, min_lift=0.0):
     return path
 
 
+def clutch_scatter(ratings_df, path, names=None, min_minutes=12000, n_annot=8):
+    d = ratings_df[ratings_df["minutes"] >= min_minutes].copy()
+    fig, ax = plt.subplots(figsize=(9, 8))
+    ax.scatter(d["rapm"], d["late"], s=18, color=ACCENT, alpha=0.7)
+    lim = [min(d["rapm"].min(), d["late"].min()) - 1, max(d["rapm"].max(), d["late"].max()) + 1]
+    ax.plot(lim, lim, color="gray", lw=0.8, ls="--")
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+    d["rise"] = d["late"] - d["rapm"]
+    for r in d.sort_values("rise", ascending=False).head(n_annot).itertuples(index=False):
+        nm = names.get(r.PLAYER_ID, "") if names else str(r.PLAYER_ID)
+        ax.annotate(nm, (r.rapm, r.late), fontsize=8, xytext=(4, 4), textcoords="offset points")
+    ax.set_xlabel("RAPM  (all possessions)")
+    ax.set_ylabel("LATE  (leverage-weighted)")
+    ax.set_title("Who rises when it matters  (above the line = clutch)")
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    return path
+
+
+def mechanism_map(mech_df, path, names=None, n=18):
+    d = mech_df.copy()
+    d["total"] = d["vol_centrality"] + d["eff_centrality"]
+    d = d.sort_values("total", ascending=False).head(n)
+    fig, ax = plt.subplots(figsize=(9, 8))
+    ax.scatter(d["vol_centrality"], d["eff_centrality"], s=45, color=ACCENT)
+    for r in d.itertuples(index=False):
+        nm = names.get(r.PLAYER_ID, "") if names else str(r.PLAYER_ID)
+        ax.annotate(nm, (r.vol_centrality, r.eff_centrality), fontsize=8,
+                    xytext=(4, 4), textcoords="offset points")
+    ax.axhline(0, color="gray", lw=0.6)
+    ax.axvline(0, color="gray", lw=0.6)
+    ax.set_xlabel("Volume channel  →  creates shots for teammates")
+    ax.set_ylabel("Efficiency channel  →  improves teammate shot quality")
+    ax.set_title("How players elevate teammates: creation vs. shot-quality")
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    return path
+
+
+def trajectory(metrics_df, player_ids, names, path):
+    d = metrics_df[metrics_df["season_type"] == "Regular Season"]
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for pid in player_ids:
+        pdf = d[d["PLAYER_ID"] == pid].sort_values("season")
+        if not pdf.empty:
+            ax.plot(pdf["season"], pdf["points_above_expected"], marker="o",
+                    label=names.get(pid, str(pid)))
+    ax.axhline(0, color="gray", lw=0.6)
+    ax.set_ylabel("Shot-making: points above expected (xPPS)")
+    ax.set_title("Career shot-making trajectory")
+    ax.legend(fontsize=8)
+    ax.tick_params(axis="x", rotation=45)
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    return path
+
+
 def archetype_bar(arch_df, player_id, name, path):
     d = arch_df[arch_df["A"] == player_id].sort_values("archetype")
     fig, ax = plt.subplots(figsize=(7, 4))
