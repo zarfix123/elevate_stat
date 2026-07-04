@@ -36,6 +36,11 @@ def build_stints(recon_df, home_id, away_id, wp_model):
     on_a = recon_df["on_a"].to_numpy()
     on_b = recon_df["on_b"].to_numpy()
     valid = recon_df["valid"].to_numpy()
+    action = recon_df["actionType"].to_numpy()
+    person = recon_df["personId"].to_numpy()
+    shotval = pd.to_numeric(recon_df.get("shotValue", pd.Series(2, index=recon_df.index)),
+                            errors="coerce").fillna(2).to_numpy()
+    desc = recon_df.get("description", pd.Series("", index=recon_df.index)).astype(str).to_numpy()
     n = len(recon_df)
 
     rows = []
@@ -58,6 +63,12 @@ def build_stints(recon_df, home_id, away_id, wp_model):
         start_a = away_score[i - 1] if i > 0 else 0.0
         if seconds > 0 and len(home_lu) == 5 and len(away_lu) == 5:
             secs_remaining = win_prob.seconds_remaining(p, clock[i])
+            player_pts = {}
+            for k in range(i, j + 1):
+                if action[k] == "Made Shot":
+                    player_pts[person[k]] = player_pts.get(person[k], 0) + shotval[k]
+                elif action[k] == "Free Throw" and "MISS" not in desc[k]:
+                    player_pts[person[k]] = player_pts.get(person[k], 0) + 1
             rows.append({
                 "home_lineup": home_lu,
                 "away_lineup": away_lu,
@@ -65,6 +76,7 @@ def build_stints(recon_df, home_id, away_id, wp_model):
                 "away_pts": away_score[j] - start_a,
                 "seconds": seconds,
                 "leverage": float(win_prob.leverage(wp_model, start_h - start_a, secs_remaining)),
+                "player_pts": player_pts,
             })
         i = j + 1
 
