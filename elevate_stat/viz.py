@@ -65,7 +65,7 @@ def clutch_scatter(ratings_df, path, names=None, min_minutes=12000, n_annot=8):
         ax.annotate(nm, (r.rapm, r.late), fontsize=8, xytext=(4, 4), textcoords="offset points")
     ax.set_xlabel("RAPM  (all possessions)")
     ax.set_ylabel("LATE  (leverage-weighted)")
-    ax.set_title("Who rises when it matters  (above the line = clutch)")
+    ax.set_title("Who rises in high-leverage minutes  (above the line = bigger when it matters)")
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)

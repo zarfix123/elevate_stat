@@ -61,11 +61,27 @@ def main(argv=None):
                          "Klay Thompson", "Andre Iguodala"], idn)
     if len(warriors) >= 3:
         viz.who_lifts_whom(pairs, warriors, idn, FIGURES / "warriors_network.png")
-    if not big.empty:
-        top = big.iloc[0]
-        viz.archetype_bar(arch, top["PLAYER_ID"], top["name"], FIGURES / "top_elevator_archetypes.png")
+    rev = {}
+    for pid, name in idn.items():
+        rev.setdefault(name, pid)
+    if rev.get("Nikola Jokić") is not None:
+        viz.archetype_bar(arch, rev["Nikola Jokić"], "Nikola Jokić", FIGURES / "top_elevator_archetypes.png")
 
-    log.info("elevation ratings + figures written (%d players, %d pairs).", len(cent), len(pairs))
+    # Phase 2c: mechanism lens + additional charts
+    mech, _ = et.compute_mechanism(table, min_shared_tsa=ns.min_shared_tsa)
+    mech["name"] = mech["PLAYER_ID"].map(idn)
+    mech.to_parquet(PROCESSED / "mechanism.parquet", index=False)
+    viz.mechanism_map(mech[mech["minutes"] >= 12000], FIGURES / "mechanism_map.png", names=idn, n=18)
+
+    late_path = PROCESSED / "late_ratings.parquet"
+    if late_path.exists():
+        viz.clutch_scatter(pd.read_parquet(late_path), FIGURES / "clutch_scatter.png", names=idn)
+    xpps_path = PROCESSED / "xpps_player_metrics.parquet"
+    if xpps_path.exists():
+        traj_ids = _ids_for(["Nikola Jokić", "Stephen Curry", "Shai Gilgeous-Alexander", "Luka Dončić"], idn)
+        viz.trajectory(pd.read_parquet(xpps_path), traj_ids, idn, FIGURES / "trajectory.png")
+
+    log.info("elevation + mechanism ratings + figures written (%d players, %d pairs).", len(cent), len(pairs))
 
 
 if __name__ == "__main__":
