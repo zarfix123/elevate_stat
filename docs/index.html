@@ -14,6 +14,7 @@
     --cream:#ece4d7; --muted:#9c9080; --amber:#f2883b; --amber2:#ffb060; --teal:#46bccb;
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none !important}
   body{
     background:
       radial-gradient(1200px 600px at 80% -10%, rgba(242,136,59,.10), transparent 60%),
@@ -79,6 +80,20 @@
   .crow .cn{flex:1; font-size:13px}
   .crow .cv{font-family:"Bebas Neue"; font-size:20px}
 
+  .maintabs{display:flex; gap:8px; margin:4px 0 18px}
+  .mtab{font-family:"Archivo"; font-size:13.5px; letter-spacing:.3px; color:var(--muted); cursor:pointer; padding:9px 18px; border:1px solid var(--line); border-radius:9px; background:var(--panel)}
+  .mtab:hover{color:var(--cream)}
+  .mtab.on{color:var(--cream); background:var(--panel2); border-color:var(--amber)}
+  .rightcol{min-width:0}
+  .trajcard{margin-top:0}
+  .trhead{padding:13px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line)}
+  .trt{font-family:"Bebas Neue"; letter-spacing:1px; font-size:20px}
+  .trtabs{display:flex; gap:6px}
+  .trtab{font-size:11.5px; color:var(--muted); cursor:pointer; padding:4px 12px; border:1px solid var(--line); border-radius:20px}
+  .trtab.on{color:var(--bg); background:var(--amber); border-color:var(--amber); font-weight:600}
+  #traj{padding:14px 12px 6px}
+  #traj svg{width:100%; display:block}
+
   .webcard{display:flex; flex-direction:column}
   .webhead{padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line)}
   .webhead .t{font-family:"Bebas Neue"; letter-spacing:1.5px; font-size:22px}
@@ -137,25 +152,46 @@
   </div>
   <div class="hint" style="margin:-6px 0 16px">Reg. season + playoffs. Single season & all-time are exact fits; a range is a minutes-weighted blend. Click any node to jump.</div>
 
-  <div class="grid">
-    <div class="leftcol">
-      <div class="card" id="playercard"></div>
-      <div class="card connpanel" id="connpanel"></div>
-    </div>
-    <div class="card webcard">
-      <div class="webhead">
-        <div class="t" id="webtitle">Teammate web</div>
-        <div class="legend">
-          <span><span class="dot" style="background:#54cf82"></span>makes better</span>
-          <span><span class="dot" style="background:#f2585b"></span>makes worse</span>
-          <span style="opacity:.7">arrow = who affects whom</span>
+  <div class="maintabs">
+    <span class="mtab on" data-t="web">Explorer</span>
+    <span class="mtab" data-t="traj">Trajectory</span>
+    <span class="mtab" data-t="board">Leaderboards</span>
+  </div>
+
+  <div id="wrap-player">
+    <div class="grid">
+      <div class="leftcol">
+        <div class="card" id="playercard"></div>
+        <div class="card connpanel" id="connpanel"></div>
+      </div>
+      <div class="rightcol">
+        <div class="card webcard" id="view-web">
+          <div class="webhead">
+            <div class="t" id="webtitle">Teammate web</div>
+            <div class="legend">
+              <span><span class="dot" style="background:#54cf82"></span>makes better</span>
+              <span><span class="dot" style="background:#f2585b"></span>makes worse</span>
+              <span style="opacity:.7">arrow = who affects whom</span>
+            </div>
+          </div>
+          <div id="net"></div>
+        </div>
+        <div class="card trajcard" id="view-traj" hidden>
+          <div class="trhead">
+            <div class="trt" id="trtitle">Season-by-season</div>
+            <div class="trtabs">
+              <span class="trtab on" data-m="late">LATE</span>
+              <span class="trtab" data-m="rapm">RAPM</span>
+              <span class="trtab" data-m="elev">Elevation</span>
+            </div>
+          </div>
+          <div id="traj"></div>
         </div>
       </div>
-      <div id="net"></div>
     </div>
   </div>
 
-  <div class="board">
+  <div class="board" id="view-board" hidden>
     <h2>Leaderboard</h2>
     <div class="sub">min. 8,000 minutes</div>
     <div class="tabs">
@@ -176,7 +212,8 @@
 
 <script>
 const HEAD = id => `https://cdn.nba.com/headshots/nba/latest/1040x760/${id}.png`;
-let DATA=null, PLAYERS=[], EDGES=[], BYID={}, NAMES={}, network=null, current=null, boardKey='elev', boardMin=8000, connDir='in';
+let DATA=null, PLAYERS=[], EDGES=[], BYID={}, NAMES={}, network=null, current=null, boardKey='elev', boardMin=8000, connDir='in', trajMetric='late';
+const METRIC_LABEL = {late:'LATE (leverage-adjusted)', rapm:'RAPM (overall)', elev:'Elevation'};
 
 function fmt(v){ return v==null ? "—" : (v>0?"+":"") + Number(v).toFixed(2); }
 function nameOf(id){ return (BYID[id]||{}).name || NAMES[id] || ''; }
@@ -190,6 +227,11 @@ async function load(){
   sf.innerHTML=opts; st.innerHTML=opts; sf.value='all'; st.value='all';
   sf.addEventListener('change',onSeason); st.addEventListener('change',onSeason);
   document.getElementById('typesel').addEventListener('change', setView);
+  document.querySelectorAll('.mtab').forEach(t=>t.addEventListener('click',()=>setTab(t.dataset.t)));
+  document.querySelectorAll('.trtab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.trtab').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+    trajMetric=t.dataset.m; if(BYID[current]) drawTrajectory(BYID[current]);
+  }));
   const teams=[...new Set(Object.values(DATA.data.all.both.players).map(p=>p.team).filter(Boolean))].sort();
   const sel=document.getElementById('teamsel');
   teams.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});
@@ -286,6 +328,32 @@ function select(id){
     <div class="interp">${interp(p)}</div>`;
   drawWeb(p);
   renderConnections(p);
+  drawTrajectory(p);
+}
+
+function drawTrajectory(p){
+  const type = document.getElementById('typesel').value;
+  const seasons = DATA.seasons;
+  const vals = seasons.map(s => { const pl=((DATA.data[s]||{})[type]||{players:{}}).players[p.id]; return pl ? pl[trajMetric] : null; });
+  const pts = vals.map((v,i)=>({i,v})).filter(o=>o.v!=null);
+  const tl = type==='po'?'playoffs':type==='reg'?'regular season':'reg + playoffs';
+  document.getElementById('trtitle').textContent = `${p.name} — ${METRIC_LABEL[trajMetric]} by season (${tl})`;
+  const el = document.getElementById('traj');
+  if(!pts.length){ el.innerHTML = `<div class="empty" style="padding:30px 14px">no per-season data for ${p.name} in ${tl}</div>`; return; }
+  const W=1000,H=230, padL=42,padR=18,padT=16,padB=30;
+  const xs = i => padL + (seasons.length<2?0.5:i/(seasons.length-1))*(W-padL-padR);
+  const allv = pts.map(o=>o.v).concat([0]);
+  let mn=Math.min(...allv), mx=Math.max(...allv); if(mn===mx){mn-=1;mx+=1;}
+  const g=(mx-mn)*0.18; mn-=g; mx+=g;
+  const ys = v => padT + (1-(v-mn)/(mx-mn))*(H-padT-padB);
+  const path = pts.map((o,k)=>`${k?'L':'M'}${xs(o.i).toFixed(1)},${ys(o.v).toFixed(1)}`).join(' ');
+  const dots = pts.map(o=>`<circle cx="${xs(o.i).toFixed(1)}" cy="${ys(o.v).toFixed(1)}" r="4.5" fill="${o.v>=0?'#54cf82':'#f2585b'}" stroke="#14110d" stroke-width="1.5"/><text x="${xs(o.i).toFixed(1)}" y="${(ys(o.v)-9).toFixed(1)}" text-anchor="middle" font-size="12" fill="#ece4d7" font-family="Archivo">${fmt(o.v)}</text>`).join('');
+  const xlab = seasons.map((s,i)=>`<text x="${xs(i).toFixed(1)}" y="${H-9}" text-anchor="middle" font-size="11" fill="#9c9080" font-family="Archivo">'${s.slice(2,4)}</text>`).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">
+    <line x1="${padL}" y1="${ys(0).toFixed(1)}" x2="${W-padR}" y2="${ys(0).toFixed(1)}" stroke="#4a3c28" stroke-dasharray="4 4"/>
+    <path d="${path}" fill="none" stroke="#f2883b" stroke-width="2.5" stroke-linejoin="round"/>
+    ${dots}${xlab}
+  </svg>`;
 }
 
 function renderConnections(p){
@@ -366,6 +434,16 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
   t.classList.add('on'); renderBoard(t.dataset.k);
 }));
+
+function setTab(t){
+  document.querySelectorAll('.mtab').forEach(x=>x.classList.toggle('on', x.dataset.t===t));
+  document.getElementById('wrap-player').hidden = (t==='board');
+  document.getElementById('view-board').hidden = (t!=='board');
+  document.getElementById('view-web').hidden = (t!=='web');
+  document.getElementById('view-traj').hidden = (t!=='traj');
+  const p = BYID[current];
+  if(p){ if(t==='web') drawWeb(p); else if(t==='traj') drawTrajectory(p); }
+}
 
 load();
 </script>
