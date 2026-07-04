@@ -29,6 +29,26 @@ def test_min_shared_tsa_filters_thin_pairs():
     assert pairs.empty
 
 
+def test_mechanism_volume_channel():
+    # teammate 2 takes MORE shots with 1 on, same efficiency -> volume channel positive
+    rows = ([_stint([1, 2, 3, 4, 5], [11, 12, 13, 14, 15], {2: 8}, {2: 4})] * 100
+            + [_stint([2, 6, 3, 4, 5], [11, 12, 13, 14, 15], {2: 4}, {2: 2})] * 100)
+    mech, _ = et.compute_mechanism(pd.DataFrame(rows), min_shared_tsa=10, shrink_k=0)
+    m = mech.set_index("PLAYER_ID").loc[1]
+    assert m["vol_centrality"] > 0
+    assert abs(m["eff_centrality"]) < 1e-6
+
+
+def test_mechanism_efficiency_channel():
+    # teammate 2 same shots, MORE efficient with 1 on -> efficiency channel positive
+    rows = ([_stint([1, 2, 3, 4, 5], [11, 12, 13, 14, 15], {2: 8}, {2: 4})] * 100
+            + [_stint([2, 6, 3, 4, 5], [11, 12, 13, 14, 15], {2: 4}, {2: 4})] * 100)
+    mech, _ = et.compute_mechanism(pd.DataFrame(rows), min_shared_tsa=10, shrink_k=0)
+    m = mech.set_index("PLAYER_ID").loc[1]
+    assert m["eff_centrality"] > 0
+    assert abs(m["vol_centrality"]) < 1e-6
+
+
 def test_elevation_by_archetype_reflects_ordering():
     pairs = pd.DataFrame({
         "A": [1, 1, 1], "B": [2, 3, 4],

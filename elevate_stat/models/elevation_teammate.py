@@ -1,5 +1,7 @@
 import pandas as pd
 
+SECONDS_PER_POSS = 28.8
+
 
 def compute(stints_df, min_shared_tsa=150.0):
     """Leverage-weighted WOWY teammate elevation, measured on teammate *efficiency*
@@ -46,6 +48,60 @@ def compute(stints_df, min_shared_tsa=150.0):
     ).sort_values("elevation_centrality", ascending=False).reset_index(drop=True)
     pairs_df = pd.DataFrame(lifts, columns=["A", "B", "lift", "shared_tsa"])
     return centrality_df, pairs_df
+
+
+def compute_mechanism(stints_df, min_shared_tsa=150.0, shrink_k=400.0):
+    """Split each A->B teammate lift into a VOLUME channel (B takes more shots with A
+    on = creation/passing) and an EFFICIENCY channel (B's shots are better = spacing/
+    gravity), since B's scoring rate = (pts/tsa) x (tsa/poss) = efficiency x volume.
+    Each lift is shrunk by shared_tsa/(shared_tsa+shrink_k) toward 0. Returns:
+      mech_df[PLAYER_ID, vol_centrality, eff_centrality, minutes]
+      pairs_df[A, B, eff_lift, vol_lift, shared_tsa]"""
+    p_pts, p_tsa, p_poss, p_secs = {}, {}, {}, {}
+    pair_pts, pair_tsa, pair_poss = {}, {}, {}
+    for row in stints_df.itertuples(index=False):
+        poss = row.seconds / SECONDS_PER_POSS
+        wp = row.leverage * poss
+        pts, tsa = row.player_pts, row.player_tsa
+        for lineup in (row.home_lineup, row.away_lineup):
+            for b in lineup:
+                bp, bt = row.leverage * pts.get(b, 0), row.leverage * tsa.get(b, 0)
+                p_pts[b] = p_pts.get(b, 0) + bp
+                p_tsa[b] = p_tsa.get(b, 0) + bt
+                p_poss[b] = p_poss.get(b, 0) + wp
+                p_secs[b] = p_secs.get(b, 0) + row.seconds
+                for a in lineup:
+                    if a != b:
+                        key = (a, b)
+                        pair_pts[key] = pair_pts.get(key, 0) + bp
+                        pair_tsa[key] = pair_tsa.get(key, 0) + bt
+                        pair_poss[key] = pair_poss.get(key, 0) + wp
+
+    rows = []
+    en, ed, vn, vd = {}, {}, {}, {}
+    for (a, b), tsa_with in pair_tsa.items():
+        tsa_without = p_tsa[b] - tsa_with
+        poss_with = pair_poss[(a, b)]
+        poss_without = p_poss[b] - poss_with
+        if tsa_with < min_shared_tsa or tsa_without < min_shared_tsa or poss_without <= 0:
+            continue
+        eff_lift = 100.0 * (pair_pts[(a, b)] / tsa_with
+                            - (p_pts[b] - pair_pts[(a, b)]) / tsa_without)
+        vol_lift = 100.0 * (tsa_with / poss_with - tsa_without / poss_without)
+        shrink = tsa_with / (tsa_with + shrink_k)
+        eff_lift *= shrink
+        vol_lift *= shrink
+        rows.append((a, b, eff_lift, vol_lift, tsa_with))
+        en[a] = en.get(a, 0) + tsa_with * eff_lift
+        vn[a] = vn.get(a, 0) + tsa_with * vol_lift
+        ed[a] = ed.get(a, 0) + tsa_with
+
+    mech_df = pd.DataFrame(
+        [(a, vn[a] / ed[a], en[a] / ed[a], p_secs.get(a, 0) / 60) for a in ed],
+        columns=["PLAYER_ID", "vol_centrality", "eff_centrality", "minutes"],
+    )
+    pairs_df = pd.DataFrame(rows, columns=["A", "B", "eff_lift", "vol_lift", "shared_tsa"])
+    return mech_df, pairs_df
 
 
 def elevation_by_archetype(pairs_df, archetypes):
