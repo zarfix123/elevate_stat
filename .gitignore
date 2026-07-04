@@ -32,3 +32,6 @@ ingest-*.log
 
 # model build log
 build-models.log
+
+# late build log
+build-late.log
