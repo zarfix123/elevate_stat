@@ -106,8 +106,9 @@ def main():
     out_data["all"] = slices(table, primary, idn, {"both": 1500, "reg": 1500, "po": 300})
     print("done all-time", flush=True)
 
+    names = {str(k): v for k, v in idn.items()}
     os.makedirs("docs", exist_ok=True)
-    json.dump({"seasons": list(config.SEASONS), "data": out_data}, open("docs/data.json", "w"))
+    json.dump({"seasons": list(config.SEASONS), "data": out_data, "names": names}, open("docs/data.json", "w"))
     sz = os.path.getsize("docs/data.json") / 1e6
     print(f"wrote docs/data.json ({sz:.1f} MB)", flush=True)
 

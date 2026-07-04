@@ -65,6 +65,20 @@
   .interp{padding:15px 18px; color:var(--muted); font-size:12.5px; line-height:1.55; border-top:1px solid var(--line)}
   .interp b{color:var(--cream); font-weight:600}
 
+  .leftcol{display:flex; flex-direction:column; gap:20px}
+  .connpanel{display:flex; flex-direction:column}
+  .cphead{padding:13px 16px; border-bottom:1px solid var(--line)}
+  .cpt{font-family:"Bebas Neue"; letter-spacing:1px; font-size:19px}
+  .cptabs{display:flex; gap:6px; margin-top:8px}
+  .cptab{font-size:11px; color:var(--muted); cursor:pointer; padding:3px 10px; border:1px solid var(--line); border-radius:20px}
+  .cptab.on{color:var(--bg); background:var(--amber2); border-color:var(--amber2); font-weight:600}
+  .clist{max-height:452px; overflow:auto}
+  .crow{display:flex; align-items:center; gap:10px; padding:7px 14px; cursor:pointer; border-bottom:1px solid rgba(255,255,255,.03)}
+  .crow:hover{background:rgba(242,136,59,.10)}
+  .crow img{width:30px; height:22px; border-radius:4px; object-fit:cover; background:#2a231a}
+  .crow .cn{flex:1; font-size:13px}
+  .crow .cv{font-family:"Bebas Neue"; font-size:20px}
+
   .webcard{display:flex; flex-direction:column}
   .webhead{padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line)}
   .webhead .t{font-family:"Bebas Neue"; letter-spacing:1.5px; font-size:22px}
@@ -124,7 +138,10 @@
   <div class="hint" style="margin:-6px 0 16px">Reg. season + playoffs. Single season & all-time are exact fits; a range is a minutes-weighted blend. Click any node to jump.</div>
 
   <div class="grid">
-    <div class="card" id="playercard"></div>
+    <div class="leftcol">
+      <div class="card" id="playercard"></div>
+      <div class="card connpanel" id="connpanel"></div>
+    </div>
     <div class="card webcard">
       <div class="webhead">
         <div class="t" id="webtitle">Teammate web</div>
@@ -159,12 +176,15 @@
 
 <script>
 const HEAD = id => `https://cdn.nba.com/headshots/nba/latest/1040x760/${id}.png`;
-let DATA=null, PLAYERS=[], EDGES=[], BYID={}, network=null, current=null, boardKey='elev', boardMin=8000;
+let DATA=null, PLAYERS=[], EDGES=[], BYID={}, NAMES={}, network=null, current=null, boardKey='elev', boardMin=8000, connDir='in';
 
 function fmt(v){ return v==null ? "—" : (v>0?"+":"") + Number(v).toFixed(2); }
+function nameOf(id){ return (BYID[id]||{}).name || NAMES[id] || ''; }
+function mk(m){ return m>=10000 ? Math.round(m/1000)+'k' : m>=1000 ? (m/1000).toFixed(1)+'k' : Math.round(m).toLocaleString(); }
 
 async function load(){
   DATA = await fetch('data.json').then(r=>r.json());
+  NAMES = DATA.names || {};
   const opts = ['<option value="all">All-time</option>'].concat(DATA.seasons.map(s=>`<option value="${s}">${s}</option>`)).join('');
   const sf=document.getElementById('seasonFrom'), st=document.getElementById('seasonTo');
   sf.innerHTML=opts; st.innerHTML=opts; sf.value='all'; st.value='all';
@@ -260,12 +280,37 @@ function select(id){
       <div class="stat"><div class="lab">LATE · leverage-adjusted</div><div class="val">${fmt(p.late)}</div></div>
       <div class="stat"><div class="lab">RAPM · overall</div><div class="val dim">${fmt(p.rapm)}</div></div>
       <div class="stat"><div class="lab">Elevation</div><div class="val teal">${fmt(p.elev)}</div></div>
-      <div class="stat"><div class="lab">Minutes</div><div class="val dim" style="color:var(--muted)">${(p.min/1000).toFixed(0)}k</div></div>
+      <div class="stat"><div class="lab">Minutes</div><div class="val dim" style="color:var(--muted)">${mk(p.min)}</div></div>
       ${mech}
     </div>
     <div class="interp">${interp(p)}</div>`;
   drawWeb(p);
+  renderConnections(p);
 }
+
+function renderConnections(p){
+  const list = (connDir==='in'
+      ? EDGES.filter(e=>e.b===p.id).map(e=>({id:e.a, lift:e.lift}))
+      : EDGES.filter(e=>e.a===p.id).map(e=>({id:e.b, lift:e.lift})))
+    .sort((a,b)=>b.lift-a.lift);
+  const rows = list.map(x=>{
+    const col = x.lift>=0 ? '#54cf82' : '#f2585b';
+    return `<div class="crow" data-id="${x.id}"><img src="${HEAD(x.id)}" onerror="this.style.visibility='hidden'"><span class="cn">${nameOf(x.id)}</span><span class="cv" style="color:${col}">${fmt(x.lift)}</span></div>`;
+  }).join('');
+  const label = connDir==='in' ? `Who most affects ${p.name}` : `Who ${p.name} most affects`;
+  document.getElementById('connpanel').innerHTML = `
+    <div class="cphead">
+      <div class="cpt">${label}</div>
+      <div class="cptabs">
+        <span class="cptab ${connDir==='in'?'on':''}" data-d="in">affects them</span>
+        <span class="cptab ${connDir==='out'?'on':''}" data-d="out">they affect</span>
+      </div>
+    </div>
+    <div class="clist">${rows || '<div class="empty" style="padding:26px 14px">no connections in this view</div>'}</div>`;
+  document.querySelectorAll('#connpanel .cptab').forEach(t=>t.addEventListener('click',()=>{ connDir=t.dataset.d; renderConnections(p); }));
+  document.querySelectorAll('#connpanel .crow').forEach(r=>r.addEventListener('click',()=>select(+r.dataset.id)));
+}
+
 function interp(p){
   const bits=[];
   bits.push(`<b>${p.name}</b> adds <b>${fmt(p.rapm)}</b> pts/100 overall, <b>${fmt(p.late)}</b> once weighted toward the moments that matter.`);
@@ -284,15 +329,14 @@ function drawWeb(p){
   net.innerHTML='';
   const ids = new Set([p.id]); out.forEach(e=>ids.add(e.b)); inn.forEach(e=>ids.add(e.a));
   const nodes = [...ids].map(id=>{
-    const q = BYID[id] || {name:''};
     return { id, shape:'circularImage', image:HEAD(id), brokenImage:HEAD(id),
-      label:(q.name||'').split(' ').slice(-1)[0], size: id===p.id?44:22,
+      label:nameOf(id).split(' ').slice(-1)[0], size: id===p.id?44:22,
       borderWidth: id===p.id?4:2, color:{border:id===p.id?'#f2883b':'#4a3c28', background:'#241f18'},
       font:{color:'#d8cfc0', size:11, face:'Archivo', strokeWidth:0} };
   });
   const mk = (from,to,e,op)=>({ from, to, value:Math.abs(e.lift),
     color:{color: e.lift>=0?POS:NEG, opacity:op, highlight:e.lift>=0?POS:NEG},
-    title:`${(BYID[from]||{}).name||''} → ${(BYID[to]||{}).name||''}: ${e.lift>=0?'+':''}${e.lift} pts/100 shots` });
+    title:`${nameOf(from)} → ${nameOf(to)}: ${e.lift>=0?'+':''}${e.lift} pts/100 shots` });
   const edges = [ ...out.map(e=>mk(p.id,e.b,e,.8)), ...inn.map(e=>mk(e.a,p.id,e,.35)) ];
   network = new vis.Network(net, {nodes:new vis.DataSet(nodes), edges:new vis.DataSet(edges)}, {
     physics:{ barnesHut:{gravitationalConstant:-3600, springLength:145, springConstant:.045, avoidOverlap:.2}, stabilization:{iterations:160}},
@@ -313,7 +357,7 @@ function renderBoard(k){
     <div class="row" data-id="${p.id}">
       <div class="rk">${i+1}</div>
       <img src="${HEAD(p.id)}" onerror="this.style.visibility='hidden'"/>
-      <div class="rn">${p.name}<br><small>${p.team||''} · ${(p.min/1000).toFixed(0)}k min</small></div>
+      <div class="rn">${p.name}<br><small>${p.team||''} · ${mk(p.min)} min</small></div>
       <div class="rv">${fmt(p[k])}</div>
     </div>`).join('');
   document.querySelectorAll('#board .row').forEach(r=>r.addEventListener('click',()=>select(+r.dataset.id)));
