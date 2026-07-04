@@ -34,13 +34,16 @@ def who_lifts_whom(pairs_df, players, names, path, min_lift=0.0):
     pos = nx.spring_layout(G, seed=1, k=1.3)
     widths = [G[u][v]["weight"] for u, v in G.edges()]
     maxw = max(widths) if widths else 1.0
-    nx.draw_networkx_nodes(G, pos, ax=ax, node_color="#263238", node_size=1500)
-    nx.draw_networkx_edges(G, pos, ax=ax, edge_color=ACCENT, alpha=0.65, arrowsize=14,
+    nx.draw_networkx_nodes(G, pos, ax=ax, node_color=ACCENT, node_size=700, edgecolors="#263238")
+    nx.draw_networkx_edges(G, pos, ax=ax, edge_color="#546e7a", alpha=0.55, arrowsize=14,
                            width=[1 + 4 * w / maxw for w in widths],
-                           connectionstyle="arc3,rad=0.08")
-    nx.draw_networkx_labels(G, pos, ax=ax, font_size=8, font_color="white",
-                            labels={p: names.get(p, str(p)) for p in players})
-    ax.set_title("Who lifts whom  (arrow A→B: A raises B's scoring)")
+                           connectionstyle="arc3,rad=0.08", node_size=700)
+    label_pos = {p: (x, y - 0.11) for p, (x, y) in pos.items()}
+    nx.draw_networkx_labels(G, label_pos, ax=ax, font_size=10, font_color="black",
+                            labels={p: names.get(p, str(p)) for p in players},
+                            bbox=dict(facecolor="white", edgecolor="none", alpha=0.75, pad=0.3))
+    ax.set_title("Who lifts whom  (arrow A→B: A makes B more efficient; thicker = bigger lift)")
+    ax.margins(0.12)
     ax.axis("off")
     fig.tight_layout()
     fig.savefig(path, dpi=120, facecolor="white")
