@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LATE — Leverage-Adjusted Teammate Elevation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root{
+    --bg:#14110d; --panel:#1d1913; --panel2:#241f18; --line:#352a1c;
+    --cream:#ece4d7; --muted:#9c9080; --amber:#f2883b; --amber2:#ffb060; --teal:#46bccb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(242,136,59,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(70,188,203,.07), transparent 60%),
+      var(--bg);
+    color:var(--cream); font-family:"Archivo",sans-serif; min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 22px 60px}
+  header{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line); padding-bottom:16px}
+  .brand{display:flex; align-items:baseline; gap:14px}
+  .brand h1{font-family:"Bebas Neue"; font-size:64px; letter-spacing:2px; line-height:.8; color:var(--cream)}
+  .brand h1 span{color:var(--amber)}
+  .brand .sub{color:var(--muted); font-size:13px; letter-spacing:.5px; max-width:340px}
+  .era{font-family:"Bebas Neue"; letter-spacing:2px; color:var(--muted); font-size:20px; text-align:right}
+
+  .controls{display:flex; gap:12px; flex-wrap:wrap; margin:22px 0 18px; align-items:center}
+  .field{position:relative}
+  input,select{
+    background:var(--panel); color:var(--cream); border:1px solid var(--line);
+    padding:11px 13px; border-radius:9px; font-family:"Archivo"; font-size:14px; outline:none}
+  input:focus,select:focus{border-color:var(--amber)}
+  input{width:260px}
+  .hint{color:var(--muted); font-size:12px; letter-spacing:.3px}
+  #results{position:absolute; z-index:20; top:46px; left:0; width:260px; max-height:300px; overflow:auto;
+    background:var(--panel2); border:1px solid var(--line); border-radius:9px; display:none}
+  #results div{padding:9px 12px; cursor:pointer; font-size:14px; border-bottom:1px solid rgba(255,255,255,.03)}
+  #results div:hover{background:rgba(242,136,59,.14)}
+  #results .rteam{color:var(--muted); font-size:12px; float:right}
+
+  .grid{display:grid; grid-template-columns:320px 1fr; gap:20px}
+  @media(max-width:840px){.grid{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),#1a1610); border:1px solid var(--line); border-radius:16px; overflow:hidden}
+
+  .player-head{padding:20px; display:flex; gap:16px; align-items:center; border-bottom:1px solid var(--line);
+    background:radial-gradient(400px 200px at 100% 0, rgba(242,136,59,.10), transparent)}
+  .shot{width:82px; height:60px; border-radius:8px; object-fit:cover; background:#2a231a; border:1px solid var(--line)}
+  .player-head .nm{font-family:"Bebas Neue"; font-size:30px; line-height:.95; letter-spacing:1px}
+  .player-head .mt{color:var(--muted); font-size:12.5px; margin-top:3px}
+  .badge{display:inline-block; background:var(--panel2); border:1px solid var(--line); color:var(--amber2);
+    font-size:11px; padding:2px 8px; border-radius:20px; letter-spacing:.5px; margin-top:6px}
+
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line)}
+  .stat{background:var(--panel); padding:15px 16px}
+  .stat .lab{color:var(--muted); font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase}
+  .stat .val{font-family:"Bebas Neue"; font-size:38px; line-height:.9; margin-top:5px; color:var(--amber)}
+  .stat .val.teal{color:var(--teal)} .stat .val.dim{color:var(--cream)}
+  .interp{padding:15px 18px; color:var(--muted); font-size:12.5px; line-height:1.55; border-top:1px solid var(--line)}
+  .interp b{color:var(--cream); font-weight:600}
+
+  .webcard{display:flex; flex-direction:column}
+  .webhead{padding:14px 18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line)}
+  .webhead .t{font-family:"Bebas Neue"; letter-spacing:1.5px; font-size:22px}
+  .legend{display:flex; gap:14px; font-size:11.5px; color:var(--muted); align-items:center}
+  .dot{display:inline-block; width:20px; height:3px; border-radius:3px; vertical-align:middle; margin-right:5px}
+  #net{height:520px; width:100%}
+  .empty{padding:40px; text-align:center; color:var(--muted); font-size:14px}
+
+  .board{margin-top:22px}
+  .board h2{font-family:"Bebas Neue"; letter-spacing:1.5px; font-size:26px; margin-bottom:4px}
+  .board .sub{color:var(--muted); font-size:12px; margin-bottom:12px}
+  .tabs{display:flex; gap:8px; margin-bottom:12px}
+  .tab{background:var(--panel); border:1px solid var(--line); color:var(--muted); padding:7px 14px;
+    border-radius:20px; font-size:12.5px; cursor:pointer; letter-spacing:.4px}
+  .tab.on{color:var(--bg); background:var(--amber); border-color:var(--amber); font-weight:600}
+  .rows{display:grid; grid-template-columns:repeat(2,1fr); gap:8px}
+  @media(max-width:840px){.rows{grid-template-columns:1fr}}
+  .row{display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:8px 12px; cursor:pointer}
+  .row:hover{border-color:var(--amber)}
+  .row .rk{font-family:"Bebas Neue"; color:var(--muted); font-size:20px; width:26px}
+  .row img{width:34px; height:25px; border-radius:5px; object-fit:cover; background:#2a231a}
+  .row .rn{flex:1; font-size:13.5px}
+  .row .rn small{color:var(--muted)}
+  .row .rv{font-family:"Bebas Neue"; font-size:24px; color:var(--amber)}
+  footer{margin-top:36px; color:var(--muted); font-size:11.5px; line-height:1.7; border-top:1px solid var(--line); padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>LA<span>TE</span></h1>
+      <div class="sub"><b style="color:var(--cream)">Leverage-Adjusted Teammate Elevation</b><br>
+      a from-scratch NBA impact + teammate-elevation metric, built from play-by-play.</div>
+    </div>
+    <div class="era">2015–26<br>tracking era</div>
+  </header>
+
+  <div class="controls">
+    <div class="field">
+      <input id="search" placeholder="Search a player…" autocomplete="off" />
+      <div id="results"></div>
+    </div>
+    <select id="teamsel"><option value="">All teams</option></select>
+    <select id="typesel">
+      <option value="both">Reg + Playoffs</option>
+      <option value="reg">Regular season</option>
+      <option value="po">Playoffs</option>
+    </select>
+    <div style="display:flex; gap:8px; align-items:center">
+      <span class="hint">Seasons</span>
+      <select id="seasonFrom"></select><span style="color:var(--muted)">→</span><select id="seasonTo"></select>
+      <span class="hint" id="viewnote" style="color:var(--amber2)"></span>
+    </div>
+  </div>
+  <div class="hint" style="margin:-6px 0 16px">Reg. season + playoffs. Single season & all-time are exact fits; a range is a minutes-weighted blend. Click any node to jump.</div>
+
+  <div class="grid">
+    <div class="card" id="playercard"></div>
+    <div class="card webcard">
+      <div class="webhead">
+        <div class="t" id="webtitle">Teammate web</div>
+        <div class="legend">
+          <span><span class="dot" style="background:#54cf82"></span>makes better</span>
+          <span><span class="dot" style="background:#f2585b"></span>makes worse</span>
+          <span style="opacity:.7">arrow = who affects whom</span>
+        </div>
+      </div>
+      <div id="net"></div>
+    </div>
+  </div>
+
+  <div class="board">
+    <h2>Leaderboard</h2>
+    <div class="sub">min. 8,000 minutes</div>
+    <div class="tabs">
+      <div class="tab on" data-k="elev">Top elevators</div>
+      <div class="tab" data-k="late">Top LATE (leverage-adjusted)</div>
+      <div class="tab" data-k="rapm">Top RAPM (overall)</div>
+    </div>
+    <div class="rows" id="board"></div>
+  </div>
+
+  <footer>
+    <b style="color:var(--cream)">What am I looking at?</b> &nbsp;LATE = leverage-weighted impact per 100 possessions.
+    RAPM = overall adjusted plus-minus. Elevation = how much a player raises teammates' shooting efficiency (pts per 100 shot attempts) when on court.
+    The web shows who a player makes better (amber) and who makes them better (teal). Headshots via cdn.nba.com.
+    <br>Honest caveat: elevation is unadjusted on/off (WOWY) — role players who only share the floor with stars can creep up; treat it as a lens, not gospel.
+  </footer>
+</div>
+
+<script>
+const HEAD = id => `https://cdn.nba.com/headshots/nba/latest/1040x760/${id}.png`;
+let DATA=null, PLAYERS=[], EDGES=[], BYID={}, network=null, current=null, boardKey='elev', boardMin=8000;
+
+function fmt(v){ return v==null ? "—" : (v>0?"+":"") + Number(v).toFixed(2); }
+
+async function load(){
+  DATA = await fetch('data.json').then(r=>r.json());
+  const opts = ['<option value="all">All-time</option>'].concat(DATA.seasons.map(s=>`<option value="${s}">${s}</option>`)).join('');
+  const sf=document.getElementById('seasonFrom'), st=document.getElementById('seasonTo');
+  sf.innerHTML=opts; st.innerHTML=opts; sf.value='all'; st.value='all';
+  sf.addEventListener('change',onSeason); st.addEventListener('change',onSeason);
+  document.getElementById('typesel').addEventListener('change', setView);
+  const teams=[...new Set(Object.values(DATA.data.all.both.players).map(p=>p.team).filter(Boolean))].sort();
+  const sel=document.getElementById('teamsel');
+  teams.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});
+  setView();
+}
+
+function onSeason(e){
+  const sf=document.getElementById('seasonFrom'), st=document.getElementById('seasonTo');
+  if(e.target.value==='all'){ sf.value='all'; st.value='all'; }
+  else{
+    if(sf.value==='all') sf.value=DATA.seasons[0];
+    if(st.value==='all') st.value=DATA.seasons[DATA.seasons.length-1];
+    if(DATA.seasons.indexOf(sf.value) > DATA.seasons.indexOf(st.value)){ if(e.target===sf) st.value=sf.value; else sf.value=st.value; }
+  }
+  setView();
+}
+
+function buildView(){
+  const type=document.getElementById('typesel').value;
+  const sf=document.getElementById('seasonFrom').value, st=document.getElementById('seasonTo').value;
+  const note=document.getElementById('viewnote');
+  const pick = k => (DATA.data[k] && DATA.data[k][type]) || {players:{},edges:[]};
+  if(sf==='all'||st==='all'){ note.textContent='all-time'; return pick('all'); }
+  const keys=DATA.seasons.slice(DATA.seasons.indexOf(sf), DATA.seasons.indexOf(st)+1);
+  if(keys.length===1){ note.textContent='single season'; return pick(keys[0]); }
+  note.textContent='blended · '+keys.length+' seasons';
+  const agg={};
+  keys.forEach(k=>{ for(const [id,p] of Object.entries(pick(k).players)){
+    const a=agg[id]||(agg[id]={name:p.name,team:p.team,min:0,s:{},w:{}});
+    if(p.team) a.team=p.team; a.min+=p.min;
+    for(const f of ['late','rapm','elev','vol','eff']) if(p[f]!=null){ a.s[f]=(a.s[f]||0)+p[f]*p.min; a.w[f]=(a.w[f]||0)+p.min; }
+  }});
+  const players={};
+  for(const [id,a] of Object.entries(agg)){ const o={name:a.name,team:a.team,min:a.min};
+    for(const f of ['late','rapm','elev','vol','eff']) o[f]=a.w[f]? +(a.s[f]/a.w[f]).toFixed(2):null; players[id]=o; }
+  const em={};
+  keys.forEach(k=>pick(k).edges.forEach(e=>{ const key=e.a+'-'+e.b; const m=em[key]||(em[key]={a:e.a,b:e.b,ls:0,ws:0}); m.ls+=e.lift*e.w; m.ws+=e.w; }));
+  const edges=Object.values(em).map(m=>({a:m.a,b:m.b,lift:+(m.ls/m.ws).toFixed(2),w:m.ws}));
+  return {players, edges};
+}
+
+function setView(){
+  const view=buildView();
+  BYID={}; PLAYERS=[];
+  for(const [id,p] of Object.entries(view.players)){ const o={id:+id, ...p}; BYID[o.id]=o; PLAYERS.push(o); }
+  EDGES=view.edges;
+  boardMin = Math.max(300, Math.round(0.32*Math.max(...PLAYERS.map(p=>p.min), 1)));
+  renderBoard(boardKey);
+  let pick = (current!=null && BYID[current]) ? current : null;
+  if(pick==null){ const j=PLAYERS.find(p=>p.name==='Nikola Jokić'&&p.elev!=null); pick=j?j.id:((PLAYERS.filter(p=>p.elev!=null).sort((a,b)=>b.elev-a.elev)[0]||PLAYERS[0]||{}).id); }
+  if(pick!=null) select(pick);
+}
+
+// ---- search ----
+const search = document.getElementById('search');
+const results = document.getElementById('results');
+function runSearch(){
+  const q = search.value.trim().toLowerCase();
+  const team = document.getElementById('teamsel').value;
+  let list = PLAYERS.filter(p => (!team || (p.teams||[]).includes(team)) && p.name.toLowerCase().includes(q));
+  list = list.sort((a,b)=>(b.elev??-99)-(a.elev??-99)).slice(0,12);
+  results.innerHTML = list.map(p=>`<div data-id="${p.id}">${p.name}<span class="rteam">${p.team||''}</span></div>`).join('');
+  results.style.display = list.length ? 'block':'none';
+}
+search.addEventListener('input', runSearch);
+search.addEventListener('focus', runSearch);
+document.getElementById('teamsel').addEventListener('change', runSearch);
+results.addEventListener('click', e=>{ const d=e.target.closest('div[data-id]'); if(d){ select(+d.dataset.id); results.style.display='none'; search.value=''; }});
+document.addEventListener('click', e=>{ if(!e.target.closest('.field')) results.style.display='none'; });
+
+// ---- player card ----
+function select(id){
+  const p = BYID[id]; if(!p) return;
+  current = id;
+  const mech = (p.vol!=null && p.eff!=null)
+    ? `<div class="stat"><div class="lab">Creates shots (vol)</div><div class="val dim">${fmt(p.vol)}</div></div>
+       <div class="stat"><div class="lab">Improves shots (eff)</div><div class="val teal">${fmt(p.eff)}</div></div>` : '';
+  document.getElementById('playercard').innerHTML = `
+    <div class="player-head">
+      <img class="shot" src="${HEAD(p.id)}" onerror="this.style.visibility='hidden'"/>
+      <div>
+        <div class="nm">${p.name}</div>
+        <div class="mt">${p.team||'—'} · ${p.min.toLocaleString()} min</div>
+        <div class="badge">${p.elev!=null? 'Elevation '+fmt(p.elev) : 'no teammate web'}</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="lab">LATE · leverage-adjusted</div><div class="val">${fmt(p.late)}</div></div>
+      <div class="stat"><div class="lab">RAPM · overall</div><div class="val dim">${fmt(p.rapm)}</div></div>
+      <div class="stat"><div class="lab">Elevation</div><div class="val teal">${fmt(p.elev)}</div></div>
+      <div class="stat"><div class="lab">Minutes</div><div class="val dim" style="color:var(--muted)">${(p.min/1000).toFixed(0)}k</div></div>
+      ${mech}
+    </div>
+    <div class="interp">${interp(p)}</div>`;
+  drawWeb(p);
+}
+function interp(p){
+  const bits=[];
+  bits.push(`<b>${p.name}</b> adds <b>${fmt(p.rapm)}</b> pts/100 overall, <b>${fmt(p.late)}</b> once weighted toward the moments that matter.`);
+  if(p.elev!=null) bits.push(`On-court, teammates shoot <b>${fmt(p.elev)}</b> pts/100 attempts ${p.elev>=0?'better':'worse'}.`);
+  return bits.join(' ');
+}
+
+// ---- the web ----
+const POS='#54cf82', NEG='#f2585b';
+function drawWeb(p){
+  const out = EDGES.filter(e=>e.a===p.id);   // p's effect on teammates (all)
+  const inn = EDGES.filter(e=>e.b===p.id);   // others' effect on p (all)
+  document.getElementById('webtitle').textContent = `${p.name} — ${out.length+inn.length} connections`;
+  const net = document.getElementById('net');
+  if(!out.length && !inn.length){ net.innerHTML = `<div class="empty">No teammate connections clear the shared-time threshold for ${p.name} in this view.</div>`; return; }
+  net.innerHTML='';
+  const ids = new Set([p.id]); out.forEach(e=>ids.add(e.b)); inn.forEach(e=>ids.add(e.a));
+  const nodes = [...ids].map(id=>{
+    const q = BYID[id] || {name:''};
+    return { id, shape:'circularImage', image:HEAD(id), brokenImage:HEAD(id),
+      label:(q.name||'').split(' ').slice(-1)[0], size: id===p.id?44:22,
+      borderWidth: id===p.id?4:2, color:{border:id===p.id?'#f2883b':'#4a3c28', background:'#241f18'},
+      font:{color:'#d8cfc0', size:11, face:'Archivo', strokeWidth:0} };
+  });
+  const mk = (from,to,e,op)=>({ from, to, value:Math.abs(e.lift),
+    color:{color: e.lift>=0?POS:NEG, opacity:op, highlight:e.lift>=0?POS:NEG},
+    title:`${(BYID[from]||{}).name||''} → ${(BYID[to]||{}).name||''}: ${e.lift>=0?'+':''}${e.lift} pts/100 shots` });
+  const edges = [ ...out.map(e=>mk(p.id,e.b,e,.8)), ...inn.map(e=>mk(e.a,p.id,e,.35)) ];
+  network = new vis.Network(net, {nodes:new vis.DataSet(nodes), edges:new vis.DataSet(edges)}, {
+    physics:{ barnesHut:{gravitationalConstant:-3600, springLength:145, springConstant:.045, avoidOverlap:.2}, stabilization:{iterations:160}},
+    interaction:{hover:true, dragView:true, zoomView:true, tooltipDelay:80},
+    edges:{ arrows:{to:{enabled:true, scaleFactor:.5}}, scaling:{min:.8,max:7}, smooth:{type:'continuous'} },
+    nodes:{ shadow:{enabled:true, color:'rgba(0,0,0,.5)', size:9} },
+  });
+  network.on('click', params=>{ if(params.nodes.length){ select(params.nodes[0]); }});
+}
+
+// ---- leaderboard ----
+const KEYS = {elev:'Elevation', late:'LATE', rapm:'RAPM'};
+function renderBoard(k){
+  boardKey = k;
+  document.querySelector('.board .sub').textContent = `min. ${boardMin.toLocaleString()} minutes · current view`;
+  const list = PLAYERS.filter(p=>p.min>=boardMin && p[k]!=null).sort((a,b)=>b[k]-a[k]).slice(0,20);
+  document.getElementById('board').innerHTML = list.map((p,i)=>`
+    <div class="row" data-id="${p.id}">
+      <div class="rk">${i+1}</div>
+      <img src="${HEAD(p.id)}" onerror="this.style.visibility='hidden'"/>
+      <div class="rn">${p.name}<br><small>${p.team||''} · ${(p.min/1000).toFixed(0)}k min</small></div>
+      <div class="rv">${fmt(p[k])}</div>
+    </div>`).join('');
+  document.querySelectorAll('#board .row').forEach(r=>r.addEventListener('click',()=>select(+r.dataset.id)));
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on'); renderBoard(t.dataset.k);
+}));
+
+load();
+</script>
+</body>
+</html>

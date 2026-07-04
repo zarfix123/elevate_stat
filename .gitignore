@@ -36,3 +36,6 @@ build-models.log
 # late build log
 build-late.log
 build-elev.log
+gen-seasons.log
+late-*.png
+.playwright-mcp/
